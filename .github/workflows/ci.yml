@@ -25,6 +25,9 @@ jobs:
           shellcheck --version
           shellcheck --severity=error ./*.sh build/*.sh
 
+      - name: Python syntax
+        run: python3 -m py_compile .github/scripts/check_updates.py
+
       - name: Hadolint
         run: docker run --rm -i hadolint/hadolint:v2.12.0 hadolint --failure-threshold error - < build/Dockerfile
 
