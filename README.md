@@ -2,14 +2,14 @@
 
 [![CI](https://github.com/DSTech-IT/mailpiler-with-docker/actions/workflows/ci.yml/badge.svg)](https://github.com/DSTech-IT/mailpiler-with-docker/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/simatec/piler-docker?style=flat)](https://github.com/simatec/piler-docker/blob/master/LICENSE)
-[![Donate](https://img.shields.io/badge/paypal-donate%20|%20spenden-blue.svg)](https://paypal.me/mk1676)
+[![Donate](https://img.shields.io/badge/paypal-donate%20|%20spenden-blue.svg)](https://paypal.me/schldomi)
 
 
 **************************************************************************************************************
 
 **If you like it, please consider a donation:**
   
-[![paypal](https://www.paypalobjects.com/en_US/DK/i/btn/btn_donateCC_LG.gif)](https://paypal.me/mk1676)
+[![paypal](https://www.paypalobjects.com/en_US/DK/i/btn/btn_donateCC_LG.gif)](https://paypal.me/schldomi)
 
 **************************************************************************************************************
 
