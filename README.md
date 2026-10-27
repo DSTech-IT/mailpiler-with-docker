@@ -103,6 +103,13 @@ The Default Login is `admin@local` and the Password ist `pilerrocks`
 
 > After installation, any changes can be made in piler.conf at any time and the install script can then be run again.
 
+* Mailcow
+
+With `USE_MAILCOW=true` Piler uses its built-in Mailcow support: after the IMAP login it reads the aliases
+and the name of the mailbox from the Mailcow API over HTTPS. A read-only API key is enough.
+If your Mailcow uses a self-signed certificate, set `MAILCOW_SSL_VERIFY=false` in `piler.conf` and restart
+Piler with `docker compose up -d` in the install directory.
+
 
 **********************************************************************************************************
 
@@ -229,8 +236,10 @@ To leave the container on the console you have to execute 2x `exit`.
 ## Changelog
 
 ### 1.2.2 (27.10.2026)
-* (DSTech-IT) Fix Mailcow login (HTTP 500): config-site.php now sets `$config['ENABLE_SSL_VERIFY'] = true;`. The built-in Mailcow lookup of Piler 1.4.9 uses this constant, but piler's config.php does not define it, and PHP 8 aborts on the undefined constant (reported by Elvir)
-* (DSTech-IT) install-piler.sh and patch.sh write the setting, start.sh adds it to existing installations on container start
+* (DSTech-IT) Fix Mailcow login (HTTP 500): the built-in Mailcow lookup of Piler 1.4.9 uses `ENABLE_SSL_VERIFY`, but piler's config.php does not define it, and PHP 8 aborts on the undefined constant. The Piler container now always sets it in config-site.php (reported by Elvir)
+* (DSTech-IT) Security: the built-in Mailcow lookup sent the Mailcow API key over plain HTTP, because `MAILCOW_HOST` had no `https://`. `MAILCOW_HOST` now starts with `https://`
+* (DSTech-IT) Mailcow: use the built-in Mailcow support of Piler instead of `auth-mailcow.php` (patschi/mailpiler-mailcow-integration), which no longer works with Piler 1.4.9. Existing installations are switched on container start
+* (DSTech-IT) New option `MAILCOW_SSL_VERIFY` in piler.conf (default `true`), set it to `false` for a self-signed Mailcow certificate
 
 ### 1.2.1 (27.10.2026)
 * (DSTech-IT) Security: PHP2Shell (CVE-2026-109618, CVE-2026-109619), the update installs the fixed PHP 8.5.4-0ubuntu1.5
