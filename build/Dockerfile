@@ -32,7 +32,7 @@ RUN case "${TARGETARCH}" in \
     apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
-       wget openssl sysstat catdoc unrtf poppler-utils nginx tnef sudo libtre5 cron ca-certificates curl rsyslog gnupg mariadb-client-core python3 python3-mysqldb libzip5 \
+       wget openssl sysstat bsdextrautils catdoc unrtf poppler-utils nginx tnef sudo libtre5 cron ca-certificates curl rsyslog gnupg mariadb-client-core python3 python3-mysqldb libzip5 \
        php-cli php-cgi php-mysql php-fpm php-zip php-ldap php-gd php-curl php-xml php-memcached && \
     sed -i '/session    required     pam_loginuid.so/c\#session    required     pam_loginuid.so' /etc/pam.d/cron && \
     dpkg -i /tmp/piler.deb && \

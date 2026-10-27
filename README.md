@@ -43,6 +43,10 @@ Current versions:
 | Memcached | 1.6 |
 | nginx-proxy / acme-companion (Let's Encrypt) | 1.11 / 2.8 |
 
+> PHP comes from the Ubuntu 26.04 packages. Ubuntu keeps the upstream version (`php -v` shows 8.5.4)
+> and backports security fixes into its package revisions. Check the installed revision with
+> `docker exec piler dpkg -l php8.5-cli` (e.g. `8.5.4-0ubuntu1.5`), not with `php -v`.
+
 *******************************************************************************************************
 
 
@@ -234,6 +238,10 @@ To leave the container on the console you have to execute 2x `exit`.
 **********************************************************************************************************
 
 ## Changelog
+
+### 1.2.3 (27.10.2026)
+* (DSTech-IT) Fix CPU usage always shown as 100% on the status page: Piler's `CPU_USAGE_COMMAND` needs `rev`, which Ubuntu 26.04 ships in `bsdextrautils`. The package is now installed in the Piler image (reported by Elvir)
+* (DSTech-IT) README: how to check the installed PHP security fixes (Ubuntu keeps PHP 8.5.4 and backports the fixes)
 
 ### 1.2.2 (27.10.2026)
 * (DSTech-IT) Fix Mailcow login (HTTP 500): the built-in Mailcow lookup of Piler 1.4.9 uses `ENABLE_SSL_VERIFY`, but piler's config.php does not define it, and PHP 8 aborts on the undefined constant. The Piler container now always sets it in config-site.php (reported by Elvir)
