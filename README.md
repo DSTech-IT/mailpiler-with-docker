@@ -228,6 +228,12 @@ To leave the container on the console you have to execute 2x `exit`.
 
 ## Changelog
 
+### 1.2.1 (27.10.2026)
+* (DSTech-IT) Security: PHP2Shell (CVE-2026-109618, CVE-2026-109619), the update installs the fixed PHP 8.5.4-0ubuntu1.5
+* (DSTech-IT) update.sh rebuilds the Piler image without cache, so Ubuntu security updates are always installed
+* (DSTech-IT) update.sh pulls new releases of the MariaDB, Manticore, Memcached and nginx-proxy images
+* (DSTech-IT) Piler image: install all available Ubuntu updates during the build (apt-get upgrade)
+
 ### 1.2.0 (27.10.2026)
 * (DSTech-IT) Migration script `migrate-from-simatec.sh` for existing simatec/piler-docker installations
 * (DSTech-IT) Fix update.sh: stop the containers before the old docker-compose.yml is removed
