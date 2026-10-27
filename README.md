@@ -1,7 +1,7 @@
 # piler-docker
 
 [![CI](https://github.com/DSTech-IT/mailpiler-with-docker/actions/workflows/ci.yml/badge.svg)](https://github.com/DSTech-IT/mailpiler-with-docker/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/simatec/piler-docker?style=flat)](https://github.com/simatec/piler-docker/blob/master/LICENSE)
+[![License](https://img.shields.io/github/license/DSTech-IT/mailpiler-with-docker?style=flat)](https://github.com/DSTech-IT/mailpiler-with-docker/blob/main/LICENSE)
 [![Donate](https://img.shields.io/badge/paypal-donate%20|%20spenden-blue.svg)](https://paypal.me/schldomi)
 
 
