@@ -228,8 +228,9 @@ To leave the container on the console you have to execute 2x `exit`.
 
 ## Changelog
 
-### WORK IN PROGRESS
-* (DSTech-IT) Fix Mailcow login (HTTP 500): set `$config['ENABLE_SSL_VERIFY'] = true;` in config-site.php. piler's built-in Mailcow lookup uses this constant, but config.php does not define it, and PHP 8 aborts on the undefined constant. install-piler.sh and patch.sh write it, and start.sh adds it to existing installations
+### 1.2.2 (27.10.2026)
+* (DSTech-IT) Fix Mailcow login (HTTP 500): config-site.php now sets `$config['ENABLE_SSL_VERIFY'] = true;`. piler's built-in Mailcow lookup uses this constant, but piler's config.php does not define it, and PHP 8 aborts on the undefined constant (reported by Elvir)
+* (DSTech-IT) install-piler.sh and patch.sh write the setting, start.sh adds it to existing installations on container start. With a self-signed Mailcow certificate set it to `false`
 
 ### 1.2.1 (27.10.2026)
 * (DSTech-IT) Security: PHP2Shell (CVE-2026-109618, CVE-2026-109619), the update installs the fixed PHP 8.5.4-0ubuntu1.5
