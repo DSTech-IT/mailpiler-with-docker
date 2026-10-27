@@ -408,6 +408,8 @@ cat >> $etcPth/config-site.php <<EOF
 
 // general settings.
 \$config['TIMEZONE'] = '$TIME_ZONE';
+// piler's built-in Mailcow lookup needs this constant, otherwise PHP 8 fails with an HTTP 500
+\$config['ENABLE_SSL_VERIFY'] = true;
 
 // authentication
 // Enable authentication against an imap server

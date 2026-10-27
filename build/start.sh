@@ -177,6 +177,12 @@ fix_configs() {
       echo "\$config['SPHINX_HOSTNAME_READONLY'] = '${MANTICORE_HOSTNAME}:9307';" >> "$CONFIG_SITE_PHP"
    fi
 
+   # piler's built-in Mailcow lookup uses ENABLE_SSL_VERIFY, which config.php does not define.
+   # PHP 8 aborts on the undefined constant and the login ends in an HTTP 500.
+   if ! grep -q "'ENABLE_SSL_VERIFY'" "$CONFIG_SITE_PHP"; then
+      echo "\$config['ENABLE_SSL_VERIFY'] = true;" >> "$CONFIG_SITE_PHP"
+   fi
+
    # Fix for PATH_PREFIX
    if [[ -v PATH_PREFIX ]];
      then
