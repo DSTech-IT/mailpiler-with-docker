@@ -107,6 +107,15 @@ The Default Login is `admin@local` and the Password ist `pilerrocks`
 
 > After installation, any changes can be made in piler.conf at any time and the install script can then be run again.
 
+* Host IP and ports
+
+The installer asks for the host IP and ports Piler is published on (`PILER_BIND_IP`, `PILER_SMTP_PORT`,
+`PILER_HTTP_PORT` in `piler.conf`). Leave the IP empty to use all interfaces. Bind it to one IP on a server
+with several network cards, and change the web port when Piler runs behind your own reverse proxy without
+Let's Encrypt. With Let's Encrypt the nginx-proxy always uses the ports 80 and 443.
+Existing installations are asked once during the next update; ports changed by hand in `docker-compose.yml`
+are suggested as defaults.
+
 * Mailcow
 
 With `USE_MAILCOW=true` Piler uses its built-in Mailcow support: after the IMAP login it reads the aliases
@@ -238,6 +247,10 @@ To leave the container on the console you have to execute 2x `exit`.
 **********************************************************************************************************
 
 ## Changelog
+
+### 1.2.4 (28.10.2026)
+* (DSTech-IT) Fix CPU usage on the status page staying at the same value: Piler runs `mpstat` without an interval, which returns the average since the host booted. The Piler container now sets `CPU_USAGE_COMMAND` in `config-site.php` to sample one second. An existing custom `CPU_USAGE_COMMAND` is kept (reported by Elvir)
+* (DSTech-IT) Host IP and ports: the installer asks for the host IP and the SMTP and web ports (`PILER_BIND_IP`, `PILER_SMTP_PORT`, `PILER_HTTP_PORT` in `piler.conf`). Existing installations are asked once during the update, ports changed by hand in `docker-compose.yml` are suggested. Without Let's Encrypt, port 443 is no longer published, because Piler only serves port 80 (suggested by Elvir)
 
 ### 1.2.3 (27.10.2026)
 * (DSTech-IT) Fix CPU usage always shown as 100% on the status page: Piler's `CPU_USAGE_COMMAND` needs `rev`, which Ubuntu 26.04 ships in `bsdextrautils`. The package is now installed in the Piler image (reported by Elvir)

@@ -115,7 +115,7 @@ services:
       - LETSENCRYPT_HOST=${PILER_DOMAIN}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
     ports:
-      - "25:25"
+      - "${PILER_SMTP_PORT:-25}:25"
     volumes:
       - piler_etc:/etc/piler
       - piler_var_store:/var/piler/store
