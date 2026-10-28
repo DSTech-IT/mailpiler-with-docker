@@ -80,6 +80,7 @@ services:
       - TZ=${TIME_ZONE}
       - RT=1
       - MAILCOW_SSL_VERIFY=${MAILCOW_SSL_VERIFY:-true}
+      - PILER_SMTP_ACL=${PILER_SMTP_ACL:-}
     ports:
       - "${PILER_SMTP_PORT:-25}:25"
       - "${PILER_HTTP_PORT:-80}:80"

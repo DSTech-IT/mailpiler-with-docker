@@ -91,6 +91,27 @@ function set_port_config {
          -e 's/^PILER_HTTP_PORT=.*/PILER_HTTP_PORT="'$httpPort'"/' ./piler.conf
 }
 
+# Ask which networks may deliver mail to Piler and save them in piler.conf, $1 = default
+function set_smtp_acl {
+  local acl entries entry valid
+  echo "Piler can accept SMTP only from some networks, e.g. 192.168.1.0/24 10.0.0.5"
+  echo "(\"host\" = mail from this server, \"all\" = from everywhere)"
+  while true; do
+    read -ep "Networks separated by spaces (Enter for default: ${1:-all}): " acl
+    acl=${acl:-$1}
+    if [ "$acl" = "all" ]; then acl=""; fi
+    read -ra entries <<< "$acl"
+    valid=yes
+    for entry in "${entries[@]}"; do
+      if [[ "$entry" != "host" && ! "$entry" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}(/[0-9]{1,2})?$ ]]; then valid=no; fi
+    done
+    if [ "$valid" = "yes" ]; then break; fi
+    echo -e "${redBold} Please enter IPv4 addresses, networks like 192.168.1.0/24 or \"host\".${normal}"
+  done
+  if ! grep -q "^PILER_SMTP_ACL=" ./piler.conf; then echo 'PILER_SMTP_ACL=""' >> ./piler.conf; fi
+  sed -i 's#^PILER_SMTP_ACL=.*#PILER_SMTP_ACL="'"${entries[*]}"'"#' ./piler.conf
+}
+
 # Bind the published ports of docker-compose.yml to PILER_BIND_IP (empty = all interfaces)
 function bind_ports {
   local ip="$PILER_BIND_IP"
@@ -225,6 +246,13 @@ if ! grep -q "^PILER_BIND_IP=" ./piler.conf; then
   echo
   echo "${blue}The host IP and ports of Piler can now be set (saved in piler.conf)${normal}"
   set_port_config "$oldIp" "$oldSmtp" "$oldHttp"
+fi
+
+# The SMTP access list was added in 1.2.5: ask once, empty keeps a smtp.acl written by hand
+if ! grep -q "^PILER_SMTP_ACL=" ./piler.conf; then
+  echo
+  echo "${blue}The networks allowed to deliver mail can now be set (saved in piler.conf)${normal}"
+  set_smtp_acl ""
 fi
 
 # old docker stop (before the docker-compose.yml is removed)
