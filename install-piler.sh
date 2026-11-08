@@ -20,9 +20,6 @@ else
   	normal=`echo -en "\e[0m"`
 fi
 
-# Update Source
-REPO_RAW_URL="${REPO_RAW_URL:-https://raw.githubusercontent.com/DSTech-IT/mailpiler-with-docker/main}"
-
 HLINE="================================================================"
 HLINE_SMALL="================================="
 
@@ -331,6 +328,11 @@ if [ ! -f $installPth/.configDone ]; then
     # config done
     touch $installPth/.configDone
 
+    # Installed release for update.sh, taken from the newest changelog entry
+    if [ ! -f $installPth/.version ]; then
+        sed -n 's/^### \([0-9][0-9.]*\) .*/v.\1/p' $installPth/README.md | head -1 > $installPth/.version
+    fi
+
 elif [ -f $installPth/.configDone ]; then
     # Load config
     . ./piler.conf
@@ -346,14 +348,7 @@ elif [ -f $installPth/.configDone ]; then
             echo "${blue}Ready for: $name${normal}"
             echo
 
-            for fileUpdate in update.sh README.md; do
-                echo "${purple}${HLINE}${HLINE_SMALL}"
-                echo "${purple}****** Download Update $fileUpdate ******"
-                wget $REPO_RAW_URL/$fileUpdate -O $installPth/$fileUpdate
-                echo "${purple}${HLINE}${HLINE_SMALL}${normal}"
-                echo
-            done
-            touch $installPth/.update
+            # update.sh checks the newest release and updates itself
             bash $installPth/update.sh && exit 0
         fi
     done

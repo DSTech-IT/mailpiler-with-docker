@@ -20,8 +20,12 @@ else
   normal=`echo -en "\e[0m"`
 fi
 
-# Update Source
-REPO_RAW_URL="${REPO_RAW_URL:-https://raw.githubusercontent.com/DSTech-IT/mailpiler-with-docker/main}"
+# Update Source: the files of the newest release, REPO_RAW_URL can point to a branch for tests
+GITHUB_REPO="DSTech-IT/mailpiler-with-docker"
+REPO_RAW_URL="${REPO_RAW_URL:-}"
+
+# Run from the install directory, also when started by cron
+cd "$(dirname "$0")" || exit 1
 
 HLINE="================================================================"
 HLINE_SMALL="================================="
@@ -120,6 +124,74 @@ function bind_ports {
   sed -i -E 's#^([[:space:]]*- ")((\$\{PILER_[A-Z_]+:-[0-9]+\}|[0-9]+):[0-9]+")$#\1'"$ip"':\2#' $installPth/docker-compose.yml
 }
 
+# Release tags like v.1.2.3 without the prefix, for sort -V
+function version_of {
+  local v=${1#v}
+  echo "${v#.}"
+}
+
+# True if release tag $1 is newer than $2
+function is_newer {
+  local a b
+  a=$(version_of "$1"); b=$(version_of "$2")
+  [ "$a" != "$b" ] && [ "$(printf '%s\n%s\n' "$a" "$b" | sort -V | tail -1)" = "$a" ]
+}
+
+# Show the notes of the releases after $1 up to $releaseTag (only $releaseTag if $1 is empty)
+function show_release_notes {
+  local releases tag
+  if ! command -v jq > /dev/null; then
+    echo "${blue}Release notes: https://github.com/$GITHUB_REPO/releases (install jq to show them here)${normal}"
+    return
+  fi
+  releases=$(curl -fsSL "https://api.github.com/repos/$GITHUB_REPO/releases?per_page=30") || return
+  while read -r tag; do
+    if is_newer "$tag" "$releaseTag"; then continue; fi
+    if [ -n "$1" ] && ! is_newer "$tag" "$1"; then continue; fi
+    if [ -z "$1" ] && [ "$tag" != "$releaseTag" ]; then continue; fi
+    echo
+    echo "${greenBold}${HLINE}"
+    jq -r --arg t "$tag" '.[] | select(.tag_name == $t) | .name' <<< "$releases"
+    echo "${HLINE}${normal}"
+    jq -r --arg t "$tag" '.[] | select(.tag_name == $t) | .body' <<< "$releases" | tr -d '\r'
+  done < <(jq -r '.[] | select(.prerelease | not) | .tag_name' <<< "$releases" | sort -V)
+  echo
+}
+
+# Ask before the update, $1 = question
+function confirm_update {
+  while true; do
+    read -ep "$1 (y/n): " yn
+    case $yn in
+      [Yy]* ) echo "${greenBold}********* Update started... Please wait... *********${normal}"; return;;
+      [Nn]* ) echo -e "${redBold}    The update is canceled!${normal}"; exit;;
+      * ) echo -e "${redBold} Please confirm with y or n.${normal}";;
+    esac
+  done
+}
+
+# Pull new releases of the images under the same tag and rebuild the Piler image if
+# Ubuntu updates are pending. Only changed containers are recreated (meant for a cronjob).
+function check_images {
+  local compose=(docker compose) oldImage=""
+  if [ "$COMPOSE_VERSION" != native ]; then compose=(docker-compose); fi
+
+  echo "$(date '+%F %T') Checking the images of Piler"
+  "${compose[@]}" pull --ignore-buildable --quiet || exit 1
+
+  if docker exec piler sh -c 'apt-get update -qq > /dev/null 2>&1; apt list --upgradable 2> /dev/null' | grep -q "upgradable from"; then
+    echo "Ubuntu updates are pending, rebuilding the Piler image"
+    oldImage=$(docker inspect -f '{{.Image}}' piler)
+    "${compose[@]}" build --no-cache --quiet piler || exit 1
+  fi
+
+  "${compose[@]}" up -d || exit 1
+
+  # Remove the replaced Piler image, so that weekly rebuilds do not fill the disk
+  if [ -n "$oldImage" ]; then docker rmi "$oldImage" > /dev/null 2>&1; fi
+  echo "$(date '+%F %T') Image check done"
+}
+
 #######################################################################################
 function finish_info {
   echo
@@ -164,7 +236,16 @@ cat <<"EOF"
 EOF
 echo "${normal}"
 }
-header_info
+
+mode=update
+case "${1:-}" in
+  "" ) ;;
+  --force ) mode=force;;
+  --check-images ) mode=check-images;;
+  * ) echo "Usage: bash update.sh [--force | --check-images]"; exit 1;;
+esac
+
+if [ "$mode" != check-images ]; then header_info; fi
 
 #######################################################################################
 
@@ -205,32 +286,57 @@ fi
 
 #######################################################################################
 
-while true; do
-    read -ep "Do you want to perform the update?? (y/n): " yn
-    case $yn in
-        [Yy]* ) echo "${greenBold}********* Update started... Please wait... *********${normal}"; break;;
-        [Nn]* ) echo -e "${redBold}    The update is canceled!${normal}"; exit;;
-        * ) echo -e "${redBold} Please confirm with y or n.${normal}";;
-    esac
-done
-
 installPth=`pwd`
 configPth="$installPth/config"
 etcPth="/var/lib/docker/volumes/piler-docker_piler_etc/_data"
 buildPth="$installPth/build"
 
-if [ ! -f $installPth/.update ]; then
-  echo
-  echo "${redBold}${HLINE}"
-  echo "${redBold}           Please restart the update with installer.sh"
-  echo "${redBold}${HLINE}${normal}"
-  echo
-  exit 1
+if [ "$mode" = check-images ]; then check_images; exit 0; fi
+
+# Marker of the installer before 1.3.0, no longer needed
+rm -f $installPth/.update
+
+releaseTag="${PILER_UPDATE_TAG:-}"
+
+if [ -n "${PILER_UPDATE_RESTARTED:-}" ]; then
+  # Restarted by the steps below, the update was already confirmed
+  :
+elif [ -n "$REPO_RAW_URL" ]; then
+  echo "${purple}Update source: $REPO_RAW_URL${normal}"
+  if [ "$mode" != force ]; then confirm_update "Do you want to update from this source?"; fi
 else
-  rm $installPth/.update
+  releaseTag=$(curl -fsSL "https://api.github.com/repos/$GITHUB_REPO/releases/latest" | grep -o '"tag_name": *"[^"]*"' | head -1 | cut -d'"' -f4)
+  if [ -z "$releaseTag" ]; then
+    echo "${redBold}Cannot read the newest release from GitHub, the update is canceled.${normal}"
+    exit 1
+  fi
+  installedTag=$(cat $installPth/.version 2> /dev/null)
+  echo "${blue}Installed version: ${installedTag:-unknown}, newest release: ${releaseTag}${normal}"
+
+  if [ "$mode" != force ]; then
+    if [ -n "$installedTag" ] && ! is_newer "$releaseTag" "$installedTag"; then
+      echo "${greenBold}Piler is up to date. Run \"bash update.sh --force\" to pull and rebuild everything anyway.${normal}"
+      exit 0
+    fi
+    show_release_notes "$installedTag"
+    confirm_update "Do you want to update to ${releaseTag}?"
+  fi
+  REPO_RAW_URL="https://raw.githubusercontent.com/$GITHUB_REPO/$releaseTag"
 fi
 
-# The port settings were added in 1.2.4: ask once and suggest the ports
+# Continue with the update.sh of the new release, it knows the steps this release needs.
+# Releases before 1.3.0 have an update.sh without release support and are not restarted.
+if [ -z "${PILER_UPDATE_RESTARTED:-}" ]; then
+  if curl -fsSL "$REPO_RAW_URL/update.sh" -o $installPth/update.sh.new \
+      && grep -q -- "--check-images" $installPth/update.sh.new \
+      && ! cmp -s $installPth/update.sh.new $installPth/update.sh; then
+    mv $installPth/update.sh.new $installPth/update.sh
+    REPO_RAW_URL="$REPO_RAW_URL" PILER_UPDATE_TAG="$releaseTag" PILER_UPDATE_RESTARTED=1 exec bash $installPth/update.sh "$@"
+  fi
+  rm -f $installPth/update.sh.new
+fi
+
+# The port settings were added in 1.3.0: ask once and suggest the ports
 # of the old docker-compose.yml, so that ports changed by hand are kept
 if ! grep -q "^PILER_BIND_IP=" ./piler.conf; then
   . ./piler.conf
@@ -248,7 +354,7 @@ if ! grep -q "^PILER_BIND_IP=" ./piler.conf; then
   set_port_config "$oldIp" "$oldSmtp" "$oldHttp"
 fi
 
-# The SMTP access list was added in 1.2.5: ask once, empty keeps a smtp.acl written by hand
+# The SMTP access list was added in 1.3.0: ask once, empty keeps a smtp.acl written by hand
 if ! grep -q "^PILER_SMTP_ACL=" ./piler.conf; then
   echo
   echo "${blue}The networks allowed to deliver mail can now be set (saved in piler.conf)${normal}"
@@ -285,7 +391,7 @@ for ymlUpdate in piler-default.yml piler-ssl.yml; do
   echo
 done
 
-for fileUpdate in install-piler.sh LICENSE piler.conf.example patch.sh; do
+for fileUpdate in install-piler.sh README.md LICENSE piler.conf.example patch.sh; do
   echo
   echo "${purple}${HLINE}${HLINE_SMALL}"
   echo "${purple}****** Download Update $fileUpdate ******"
@@ -396,6 +502,9 @@ else
   docker-compose pull --ignore-buildable
   docker-compose up --force-recreate -d
 fi
+
+# Remember the installed release for the next update
+if [ -n "$releaseTag" ]; then echo "$releaseTag" > $installPth/.version; fi
 
 echo
 echo "${greenBold}${HLINE}"

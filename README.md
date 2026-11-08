@@ -55,7 +55,7 @@ Current versions:
 * Install Docker and dependencies
 
 ```
-apt install curl git -y
+apt install curl git jq -y
 ```
 
 ```
@@ -139,22 +139,37 @@ Piler with `docker compose up -d` in the install directory.
 
 ### Update Guide:
 
-You can execute the following commands to update the containers.
-Here the current yml files are downloaded from Github and the containers are updated if necessary.
-
 ```
 cd /opt/piler-docker
-bash install-piler.sh
-```
-You will get a selection menu with the following options:
-
-```
-1) Install-Piler
-2) Update-Piler
+bash update.sh
 ```
 
-The update files are downloaded from `https://raw.githubusercontent.com/DSTech-IT/mailpiler-with-docker/main`.
-Another source can be set with the environment variable `REPO_RAW_URL`.
+The update checks the newest [release](https://github.com/DSTech-IT/mailpiler-with-docker/releases).
+If it is newer than the installed one (saved in `.version`), the release notes are shown and you can
+start the update. The files are downloaded from the tag of this release. To show the release notes,
+`jq` must be installed (`apt install jq -y`), otherwise only the link to the releases is shown.
+`2) Update-Piler` in the menu of `bash install-piler.sh` starts the same update.
+
+```
+bash update.sh --force
+```
+
+Pulls all files of the newest release and rebuilds everything, also when Piler is up to date.
+
+```
+bash update.sh --check-images
+```
+
+Only checks the Docker images: pulls new releases of MariaDB, Manticore, Memcached and nginx-proxy under
+the same tag and rebuilds the Piler image if Ubuntu updates (e.g. PHP) are pending. Only changed containers
+are restarted. It does not ask anything and can run as a cronjob, e.g. every Sunday at 4:00:
+
+```
+0 4 * * 0 /bin/bash /opt/piler-docker/update.sh --check-images
+```
+
+To test a branch, set the source with the environment variable `REPO_RAW_URL`, e.g.
+`REPO_RAW_URL=https://raw.githubusercontent.com/DSTech-IT/mailpiler-with-docker/<branch> bash update.sh`.
 
 During the update the Piler image is rebuilt locally. Configuration changes required by a new
 Piler version (e.g. php-fpm socket in `piler-nginx.conf`, pid file location, database indexes)
@@ -186,7 +201,7 @@ cd /opt/piler-docker && wget -O migrate-from-simatec.sh https://raw.githubuserco
 The script
 
 * checks the installation (root, Docker Compose v2 or higher, volumes of the compose project `piler-docker`, free disk space)
-* asks once at the beginning whether the migration and a reindex should be performed, afterwards it runs without further input
+* asks once at the beginning whether the migration should be performed; during the update it shows the release notes and asks for the new settings and the reindex
 * creates a backup in `/root/piler-backup-<date>`: database dump, install directory and docker volumes, plus a `restore.sh` for a rollback
 * replaces `install-piler.sh`, `update.sh` and `README.md` with the versions from this repository (the old installer is kept as `install-piler.sh.simatec`)
 * runs the regular update (local image build, automatic MariaDB upgrade, config migration)
@@ -219,7 +234,7 @@ docker image rm simatec/piler:1.4.8
 docker system prune
 ```
 
-Future updates are done as usual via `bash install-piler.sh` and `2) Update-Piler`.
+Future updates are done with `bash update.sh` (or `bash install-piler.sh` and `2) Update-Piler`).
 
 **********************************************************************************************************
 
@@ -258,10 +273,10 @@ To leave the container on the console you have to execute 2x `exit`.
 
 ## Changelog
 
-### 1.2.5 (28.10.2026)
+### 1.3.0 (08.11.2026)
+* (DSTech-IT) The update follows the releases: `bash update.sh` checks the newest release, shows its release notes and downloads the files from its tag. `--force` pulls and rebuilds everything anyway, `--check-images` only updates the Docker images and rebuilds the Piler image if Ubuntu updates are pending, e.g. as a cronjob. The installed release is saved in `.version`
+* (DSTech-IT) Fix `migrate-from-simatec.sh` hanging at the end since the update asks for ports: the migration now runs `update.sh` interactively
 * (DSTech-IT) SMTP access list: the installer asks which networks may deliver mail (`PILER_SMTP_ACL` in `piler.conf`), the Piler container writes `/etc/piler/smtp.acl` from it. Existing installations are asked once during the update; a `smtp.acl` written by hand is kept while `PILER_SMTP_ACL` is empty (suggested by Elvir)
-
-### 1.2.4 (28.10.2026)
 * (DSTech-IT) Fix CPU usage on the status page staying at the same value: Piler runs `mpstat` without an interval, which returns the average since the host booted. The Piler container now sets `CPU_USAGE_COMMAND` in `config-site.php` to sample one second. An existing custom `CPU_USAGE_COMMAND` is kept (reported by Elvir)
 * (DSTech-IT) Host IP and ports: the installer asks for the host IP and the SMTP and web ports (`PILER_BIND_IP`, `PILER_SMTP_PORT`, `PILER_HTTP_PORT` in `piler.conf`). Existing installations are asked once during the update, ports changed by hand in `docker-compose.yml` are suggested. Without Let's Encrypt, port 443 is no longer published, because Piler only serves port 80 (suggested by Elvir)
 

@@ -20,7 +20,7 @@
 #   INSTALL_DIR   install directory            (default: current directory)
 #   BACKUP_DIR    backup directory             (default: /root/piler-backup-<date>)
 #   BACKUP_STORE  "yes" also backs up the mail store volume (can be very large)
-#   REPO_RAW_URL  update source                (default: DSTech-IT/mailpiler-with-docker main)
+#   REPO_RAW_URL  update source                (default: newest release of DSTech-IT/mailpiler-with-docker)
 
 # Colors
 blue=`echo -e "\e[1m\e[34m"`
@@ -29,9 +29,9 @@ redBold=`echo -e "\e[1m\e[1;31m"`
 purple=`echo -e "\e[1m\e[35m"`
 normal=`echo -en "\e[0m"`
 
-# Update Source
+# Update Source of the new installer files; update.sh itself uses the newest release
+USER_REPO_RAW_URL="${REPO_RAW_URL:-}"
 REPO_RAW_URL="${REPO_RAW_URL:-https://raw.githubusercontent.com/DSTech-IT/mailpiler-with-docker/main}"
-export REPO_RAW_URL
 
 HLINE="================================================================"
 
@@ -176,15 +176,6 @@ echo
 
 ask_yn "Start the migration now?" || { echo "${redBold}Migration canceled.${normal}"; exit 0; }
 
-echo
-echo "After the update the search index can be rebuilt (reindex -a)."
-echo "This can take a long time for large archives. It can also be run later with:"
-echo "  docker exec -u piler -w /var/tmp piler reindex -a"
-if ask_yn "Run the reindex after the update?"; then
-  REINDEX=y
-else
-  REINDEX=n
-fi
 
 #######################################################################################
 
@@ -268,7 +259,7 @@ tmpDir="$(mktemp -d)"
 for f in install-piler.sh update.sh README.md; do
   wget -q "$REPO_RAW_URL/$f" -O "$tmpDir/$f" || die "Download of $REPO_RAW_URL/$f failed. Restore with: bash $BACKUP_DIR/restore.sh"
 done
-grep -q "REPO_RAW_URL" "$tmpDir/install-piler.sh" && grep -q "REPO_RAW_URL" "$tmpDir/update.sh" \
+grep -q "DSTech-IT/mailpiler-with-docker" "$tmpDir/update.sh" \
   || die "Downloaded files are not from DSTech-IT/mailpiler-with-docker. Restore with: bash $BACKUP_DIR/restore.sh"
 for f in install-piler.sh update.sh README.md; do
   mv "$tmpDir/$f" "$INSTALL_DIR/$f"
@@ -280,9 +271,9 @@ info "install-piler.sh, update.sh and README.md updated (old installer: install-
 
 step "3/4 Update Piler (image build takes a few minutes)"
 
-touch "$INSTALL_DIR/.update"
-# Answers for update.sh: perform the update / reindex
-printf 'y\n%s\n' "$REINDEX" | bash "$INSTALL_DIR/update.sh"
+# update.sh shows the release notes and asks for the update, the new settings and the reindex.
+# Without REPO_RAW_URL set by the user it updates to the newest release.
+REPO_RAW_URL="$USER_REPO_RAW_URL" bash "$INSTALL_DIR/update.sh"
 
 #######################################################################################
 
@@ -319,7 +310,7 @@ check "memcached_piler"       "$(docker inspect -f '{{.State.Running}}' memcache
 check "piler image"           "$(docker inspect -f '{{.Config.Image}}' piler 2>/dev/null)" "piler-docker/piler:${PILER_VERSION}"
 check "piler package"         "$(docker exec piler dpkg-query -W -f='${Version}' piler 2>/dev/null | cut -d- -f1)" "${PILER_VERSION}"
 check "mariadb image"         "$(docker inspect -f '{{.Config.Image}}' mysql_piler 2>/dev/null)" "mariadb:${MARIA_DB_VERSION}"
-check "update source"         "$(grep -q 'DSTech-IT/mailpiler-with-docker' install-piler.sh && echo DSTech-IT || echo unknown)" "DSTech-IT"
+check "update source"         "$(grep -q 'DSTech-IT/mailpiler-with-docker' update.sh && echo DSTech-IT || echo unknown)" "DSTech-IT"
 
 echo
 info "Last error lines in the piler log (if any):"
@@ -356,7 +347,7 @@ echo "${blue}If everything works, remove the old image and unused data:"
 echo "${blue}  docker image rm simatec/piler:$OLD_PILER_VERSION"
 echo "${blue}  docker system prune"
 echo
-echo "${blue}Future updates: bash install-piler.sh -> 2) Update-Piler"
+echo "${blue}Future updates: bash update.sh"
 echo "${blue}${HLINE}${normal}"
 echo
 
