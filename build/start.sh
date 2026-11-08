@@ -128,6 +128,8 @@ fix_configs() {
       -e "s/mysqlsocket=.*/mysqlsocket=/g" \
       -e "/^clamd_socket=/d" "$PILER_CONF"
 
+   fix_smtp_acl
+
    give_it_to_piler "$PILER_CONF"
 
    if [[ ! -f "$CONFIG_SITE_PHP" ]]; then
@@ -192,6 +194,43 @@ fix_configs() {
        sed -i -e "s#location.origin\ +\ .*#location.origin\ +\ $PATH_PREFIX,#" /var/piler/www/assets/js/piler.js
        sed -i -e "s#^\$config\['PATH_PREFIX'\].*#\$config\['PATH_PREFIX'\] = '$PATH_PREFIX';#" "$CONFIG_SITE_PHP"
    fi
+}
+
+
+fix_smtp_acl() {
+   local acl_file="${CONFIG_DIR}/smtp.acl"
+   local header="# Managed by piler-docker, set PILER_SMTP_ACL in piler.conf"
+   local entries entry gw
+
+   grep -q "^smtp_access_list=" "$PILER_CONF" || echo "smtp_access_list=0" >> "$PILER_CONF"
+
+   # Without PILER_SMTP_ACL a smtp.acl written by hand is kept, only our own one is removed
+   if [[ -z "${PILER_SMTP_ACL:-}" ]]; then
+      if [[ -f "$acl_file" ]] && grep -qxF "$header" "$acl_file"; then
+         log "Removing ${acl_file}"
+         rm -f "$acl_file"
+         sed -i "s/^smtp_access_list=.*/smtp_access_list=0/" "$PILER_CONF"
+      fi
+      return 0
+   fi
+
+   # "host" is the gateway of the Docker network: mail from the host itself
+   # (also via 127.0.0.1) arrives with this address
+   gw=$(awk '$2 == "00000000" { print $3; exit }' /proc/net/route)
+   gw="$((16#${gw:6:2})).$((16#${gw:4:2})).$((16#${gw:2:2})).$((16#${gw:0:2}))"
+
+   log "Writing ${acl_file}"
+   read -ra entries <<< "$PILER_SMTP_ACL"
+   {
+      echo "$header"
+      for entry in "${entries[@]}"; do
+         [[ "$entry" == "host" ]] && entry="$gw"
+         [[ "$entry" == */* ]] || entry="${entry}/32"
+         echo "${entry} permit"
+      done
+   } > "$acl_file"
+
+   sed -i "s/^smtp_access_list=.*/smtp_access_list=1/" "$PILER_CONF"
 }
 
 

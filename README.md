@@ -116,6 +116,16 @@ Let's Encrypt. With Let's Encrypt the nginx-proxy always uses the ports 80 and 4
 Existing installations are asked once during the next update; ports changed by hand in `docker-compose.yml`
 are suggested as defaults.
 
+* SMTP access list
+
+The installer asks which networks may deliver mail to Piler (`PILER_SMTP_ACL` in `piler.conf`), e.g.
+`192.168.1.0/24 10.0.0.5 host`. `host` allows mail from the server itself, which reaches Piler from the gateway
+of the Docker network (also via 127.0.0.1). Leave it empty to accept mail from everywhere. Changes take effect
+after `docker compose up -d` in the install directory. Piler writes `/etc/piler/smtp.acl` from it; a `smtp.acl`
+written by hand is kept as long as `PILER_SMTP_ACL` is empty.
+Note: if the host has a public IPv6 address, mail over IPv6 also arrives from the Docker gateway, so `host`
+allows it as well.
+
 * Mailcow
 
 With `USE_MAILCOW=true` Piler uses its built-in Mailcow support: after the IMAP login it reads the aliases
@@ -247,6 +257,9 @@ To leave the container on the console you have to execute 2x `exit`.
 **********************************************************************************************************
 
 ## Changelog
+
+### 1.2.5 (28.10.2026)
+* (DSTech-IT) SMTP access list: the installer asks which networks may deliver mail (`PILER_SMTP_ACL` in `piler.conf`), the Piler container writes `/etc/piler/smtp.acl` from it. Existing installations are asked once during the update; a `smtp.acl` written by hand is kept while `PILER_SMTP_ACL` is empty (suggested by Elvir)
 
 ### 1.2.4 (28.10.2026)
 * (DSTech-IT) Fix CPU usage on the status page staying at the same value: Piler runs `mpstat` without an interval, which returns the average since the host booted. The Piler container now sets `CPU_USAGE_COMMAND` in `config-site.php` to sample one second. An existing custom `CPU_USAGE_COMMAND` is kept (reported by Elvir)
