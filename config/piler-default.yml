@@ -81,9 +81,8 @@ services:
       - RT=1
       - MAILCOW_SSL_VERIFY=${MAILCOW_SSL_VERIFY:-true}
     ports:
-      - "25:25"
-      - "80:80"
-      - "443:443"
+      - "${PILER_SMTP_PORT:-25}:25"
+      - "${PILER_HTTP_PORT:-80}:80"
     volumes:
       - piler_etc:/etc/piler
       - piler_var_store:/var/piler/store

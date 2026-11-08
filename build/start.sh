@@ -177,6 +177,12 @@ fix_configs() {
       echo "\$config['SPHINX_HOSTNAME_READONLY'] = '${MANTICORE_HOSTNAME}:9307';" >> "$CONFIG_SITE_PHP"
    fi
 
+   # Piler runs mpstat without an interval, which returns the average since the host booted.
+   # Sample one second instead. A custom CPU_USAGE_COMMAND in config-site.php is kept.
+   if ! grep -q "'CPU_USAGE_COMMAND'" "$CONFIG_SITE_PHP"; then
+      echo "\$config['CPU_USAGE_COMMAND'] = \"LC_ALL=C mpstat 1 1 | tail -1 | awk '{ print \\\$NF }'\";" >> "$CONFIG_SITE_PHP"
+   fi
+
    fix_mailcow_config
 
    # Fix for PATH_PREFIX

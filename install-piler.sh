@@ -52,6 +52,53 @@ BLA::stop_loading_animation() {
   tput cnorm # Restore the terminal cursor
 }
 
+# Ask for a port, $1 = question, $2 = default
+function ask_port {
+  local port
+  while true; do
+    read -ep "$1 (Enter for default: $2): " port
+    port=${port:-$2}
+    if [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )); then echo "$port"; return; fi
+    echo -e "${redBold} Please enter a port between 1 and 65535.${normal}" >&2
+  done
+}
+
+# Ask for the host IP and ports Piler is published on and save them in piler.conf,
+# $1 = default IP (empty = all interfaces), $2 = default SMTP port, $3 = default web port
+function set_port_config {
+  local bindIp smtpPort httpPort="$3" key
+
+  while true; do
+    read -ep "Bind the Piler ports to one host IP? (Enter for default: ${1:-all interfaces}, \"all\" for all interfaces): " bindIp
+    bindIp=${bindIp:-$1}
+    if [ "$bindIp" = "all" ]; then bindIp=""; fi
+    if [[ -z "$bindIp" || "$bindIp" =~ ^[0-9A-Fa-f:.]+$ ]]; then break; fi
+    echo -e "${redBold} Please enter an IPv4 or IPv6 address.${normal}"
+  done
+
+  smtpPort=$(ask_port "Host port for SMTP" "$2")
+
+  # With Let's Encrypt the nginx-proxy needs the ports 80 and 443
+  if [ "$USE_LETSENCRYPT" != "yes" ]; then
+    httpPort=$(ask_port "Host port for the web interface, e.g. behind your own reverse proxy" "$3")
+  fi
+
+  for key in PILER_BIND_IP PILER_SMTP_PORT PILER_HTTP_PORT; do
+    if ! grep -q "^${key}=" ./piler.conf; then echo "${key}=\"\"" >> ./piler.conf; fi
+  done
+  sed -i -e 's/^PILER_BIND_IP=.*/PILER_BIND_IP="'$bindIp'"/' \
+         -e 's/^PILER_SMTP_PORT=.*/PILER_SMTP_PORT="'$smtpPort'"/' \
+         -e 's/^PILER_HTTP_PORT=.*/PILER_HTTP_PORT="'$httpPort'"/' ./piler.conf
+}
+
+# Bind the published ports of docker-compose.yml to PILER_BIND_IP (empty = all interfaces)
+function bind_ports {
+  local ip="$PILER_BIND_IP"
+  if [ -z "$ip" ]; then return; fi
+  if [[ "$ip" == *:* ]]; then ip="[$ip]"; fi
+  sed -i -E 's#^([[:space:]]*- ")((\$\{PILER_[A-Z_]+:-[0-9]+\}|[0-9]+):[0-9]+")$#\1'"$ip"':\2#' $installPth/docker-compose.yml
+}
+
 #######################################################################################
 
 function header_info {
@@ -199,6 +246,9 @@ if [ ! -f $installPth/.configDone ]; then
         sed -i 's/LETSENCRYPT_EMAIL=.*/LETSENCRYPT_EMAIL="'$acmeContact'"/g' ./piler.conf
     fi
 
+    # Host IP and ports
+    set_port_config "$PILER_BIND_IP" "${PILER_SMTP_PORT:-25}" "${PILER_HTTP_PORT:-80}"
+
     # use Mailcow
     while true; do
         read -ep "If Use Mailcow API Options (yes/no)? / Y|N: " jn
@@ -337,6 +387,7 @@ if [ "$USE_LETSENCRYPT" = "yes" ]; then
 else
     cp $configPth/piler-default.yml $installPth/docker-compose.yml
 fi
+bind_ports
 
 # old docker stop
 cd $installPth

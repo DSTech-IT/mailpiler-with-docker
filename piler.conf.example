@@ -49,6 +49,22 @@ USE_LETSENCRYPT="yes"
 
 LETSENCRYPT_EMAIL="admin@example.com"
 
+# ------------ Port Settings --------------
+
+# Host IP the ports are bound to, e.g. on a server with two network cards
+# (empty = all interfaces)
+
+PILER_BIND_IP=""
+
+# Host port for SMTP
+
+PILER_SMTP_PORT="25"
+
+# Host port for the web interface without Let's Encrypt,
+# e.g. behind your own reverse proxy
+
+PILER_HTTP_PORT="80"
+
 # ------ optional Mailcow Settings --------
 
 # if Use Mailcow API Options set "true"
