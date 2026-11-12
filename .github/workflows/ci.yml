@@ -66,6 +66,12 @@ jobs:
       - uses: actions/checkout@v7
 
       - uses: docker/setup-buildx-action@v4
+        with:
+          # BuildKit runs in its own container; with its own network it
+          # could no longer resolve archive.ubuntu.com / ports.ubuntu.com
+          # (apt-get update failed since 2026-11-08). Use the runner's
+          # network and DNS instead.
+          driver-opts: network=host
 
       - name: Build
         uses: docker/build-push-action@v7
